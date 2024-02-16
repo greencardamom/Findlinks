@@ -26,7 +26,8 @@ Dependencies
 * GNU awk 4.1+
 * tcsh
 * BotWikiAwk library
-* mysql client
+* MySql client
+* A Wikitech Toolforge account: https://wikitech.wikimedia.org/wiki/Portal:Toolforge
 
 Setup 
 =====
@@ -51,6 +52,8 @@ Setup
 * All program files are assumed to have some hard coded paths. Edit each and check for changes specific to your system.
 
 * You will need a Toolforge account (free registration). Copy your replica.my.cnf file to the Findlinks local directory (it contains your SQL login ID and password)
+
+* You will need passwordless ssh access. Run 'ssh-keygen' and copy-paste the content of ~/.ssh/id_rsa.pub to your toolforge account at https://admin.toolforge.org/ under "Add a ssh public key"
 
 Credits
 ==================
