@@ -1,0 +1,24 @@
+
+Step 1: Create a list of all wikis
+
+  ./allwikis.sh
+
+Step 2: 
+
+  Edit findlinks.awk and set: Domain, Outfile, Sites
+
+Step 3: Run findlinks
+
+  ./findlinks
+
+Step 4: extract mainspace (0), File (6), Template (10), Help (12), Draft (118), Module (828)
+        https://www.mediawiki.org/wiki/Extension_default_namespaces
+
+  For example this will list all 0 and 6 space articles:
+
+  awk -v re='^(0|6)$' -ilibrary '{c=split($0,a," "); if(c==4) {ns=strip($3);wp=gsubi("_"," ",strip($2)); if(ns~re) {if(wp ~ /[.](jpeg|jpg|png|svg|gif|pdf)$/) {wp = "File:" wp}; print wp } }}' newindianexpress.com | auniq > newindianexpress.auth
+
+-----
+
+Alternative method using Quarry: https://quarry.wmcloud.org/query/80435
+
