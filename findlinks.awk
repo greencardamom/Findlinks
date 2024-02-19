@@ -37,7 +37,7 @@ BEGIN {
   IGNORECASE = 1
 
   Optind = Opterr = 1
-  while ((C = getopt(ARGC, ARGV, "akd:s:n:")) != -1) {
+  while ((C = getopt(ARGC, ARGV, "akd:s:n:r:")) != -1) {
       opts++
       if(C == "d")                 #  -d <domain>     Domainame eg. "cnn.com"
         Domain = verifyval(Optarg)
@@ -45,6 +45,8 @@ BEGIN {
         Sites = verifyval(Optarg)
       if(C == "n")                 #  -i <namespace>  Namespace eg. "0" or "0 6 10" - default "0 6"
         Namespace = verifyval(Optarg)
+      if(C == "r")                 #  -r <regex>      Regex of url to match
+        Regexurl = verifyval(Optarg)
       if(C == "k")                 #  -k              Keep raw outfile
         Keepfile = 1
       if(C == "a")                 #  -a              Generate a fresh allwikis.txt file
@@ -173,10 +175,19 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       if(c == 4) {
         ns = strip(b[3])
         wp = gsubi("_"," ",strip(b[2]))
+        url = strip(b[4])
         if(ns ~ re) {
-          if(wp ~ /[.](jpeg|jpg|png|svg|gif|pdf)$/) 
-            wp = "File:" wp          
-          RES[wp] = 1
+          if(ns == "6")
+            wp = "File:" wp 
+          else if(ns == "10")
+            wp = "Template:" wp 
+          else if(ns == "620")
+            wp = "Draft:" wp
+ 
+          if(!empty(Regexurl) && url ~ Regexurl)
+            RES[wp] = 1
+          else if(empty(Regexurl))
+            RES[wp] = 1
         }
       }
     }
@@ -288,16 +299,19 @@ function help() {
   print "    -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is \"" Namespace "\""
   print "                             eg. -n \"0 6 10\" will check these 3 namespaces "
   print "                             0 = mainspace, 6 = File: and 10 = Template:"
+  print "    -r <regex>    (optional) Only report URLs that match the given regex"
   print "    -k            (optional) Keep raw output file. Useful for viewing the URLs"
   print "    -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes"
   print ""
   print "    Examples:"
-  print "      Find all pages on enwiki in namespace 4 & 5 that contain archive.md"
+  print "      Find all pages on enwiki in namespace 4 & 5 that contain 'archive.md'"
   print "         ./findlinks -d archive.md -s enwiki -n '4 5'"
   print "      Find all pages on enwiki and eswiki in namespace 0 that contain archive.md"
   print "         ./findlinks -d archive.md -s 'enwiki eswiki' -n 0"
   print "      Find all pages on the sites listed in mylist.txt in namespace 0 & 6 that contain archive.md"
   print "         ./findlinks -d archive.md -s mylist.txt"
+  print "      Find all pages on enwiki in namespace 0 & 6 that contain a URL with '^http:' and 'archive.today'"
+  print "         ./findlinks -d archive.today -s enwiki -r '^http:'"
   print ""
 
 }

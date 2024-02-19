@@ -25,6 +25,7 @@ Running
 	  -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is "0 6"
 	                           eg. -n "0 6 10" will check these 3 namespaces 
 	                           0 = mainspace, 6 = File: and 10 = Template:
+	  -r <regex>    (optional) Only report URLs that match the given regex
 	  -k            (optional) Keep raw output file. Useful for viewing the URLs
 	  -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes
 	
@@ -36,6 +37,8 @@ Running
 	      ./findlinks -d archive.md -s 'enwiki eswiki' -n 0
 	    Find all pages on the sites listed in mylist.txt in namespace 0 & 6 that contain archive.md
 	      ./findlinks -d archive.md -s mylist.txt
+	    Find all pages on enwiki in namespace 0 & 6 that contain a URL with 'archive.today' that has 'http:'
+	      ./findlinks -d archive.today -s enwiki -r '^http:'
 
 How it works
 =========
