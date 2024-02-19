@@ -53,7 +53,12 @@ Dependencies
 
 Setup 
 =====
-* Install MySQL client eg.
+* Clone the repo
+
+        cd ~
+        git clone 'https://github.com/greencardamom/Findlinks'
+
+* Install a MySQL client if not already:
 
         sudo apt-get install mysql-client
 
