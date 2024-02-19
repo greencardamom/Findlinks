@@ -1,10 +1,10 @@
 Findlinks
 ===========
-Findlinks is a script for dumping a list of Wikipedia page names that contain one or more URLs for a given domain.
+Findlinks is a script for dumping a list of Wikipedia page names where the article contains any URLs for a given domain.
 
-It answers the question: which pages on Enwiki have a cnn.com URL?
+It answers the question: which pages on Enwiki include a cnn.com URL?
 
-It can operate on 1 wiki, 2+ wikis, or all 300+ wikis.
+It can operate on 1 wiki, 2+ wikis, or all 800+ wikis.
 
 It's useful for bot operators who need to know which articles to process for a given domain.
 
@@ -15,18 +15,37 @@ It's useful to build other queries to answer other questions from the replicatio
 Running
 ==========
 
-See 0README for more detailed instructions.
+	findlinks - list page names that contain a domain
+	
+	  -d <domain>   (required) Domain to search for eg. cnn.com
+	  -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list
+	                           If "ALL" then process all sites (800+) in allwikis.txt
+	                           If "<whatever>.txt" then process all site codes listed in the file <whatever>.txt
+	                           Use of a trailing "_p" in the site code is supported but optional - see Examples below
+	  -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is "0 6"
+	                           eg. -n "0 6 10" will check these 3 namespaces 
+	                           0 = mainspace, 6 = File: and 10 = Template:
+	  -k            (optional) Keep raw output file. Useful for viewing the URLs
+	  -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes
+	
+	  Examples:
+	
+	    Find all pages on enwiki in namespace 4 & 5 that contain archive.md
+	      ./findlinks -d archive.md -s enwiki -n '4 5'
+	    Find all pages on enwiki and eswiki in namespace 0 that contain archive.md
+	      ./findlinks -d archive.md -s 'enwiki eswiki' -n 0
+	    Find all pages on the sites listed in mylist.txt in namespace 0 & 6 that contain archive.md
+	      ./findlinks -d archive.md -s mylist.txt
 
 How it works
 =========
-The script uses ssh to establish a tunnel with the replication server on Toolforge and then runs queries through the tunnel
+The script uses ssh to establish a tunnel with the replication server on Toolforge and then runs queries through the tunnel. It can run from any computer it doesn't need to be hosted on Toolforge.
 
 Dependencies
 ====
 * GNU awk 4.1+
-* tcsh
-* BotWikiAwk library
 * MySql client
+* ssh client
 * A Wikitech Toolforge account: https://wikitech.wikimedia.org/wiki/Portal:Toolforge
 
 Setup 
@@ -35,21 +54,7 @@ Setup
 
         sudo apt-get install mysql-client
 
-* Install tcsh eg.
-
-        sudo apt-get install tcsh
-
-* Install BotWikiAwk library
-
-        cd ~ 
-        git clone 'https://github.com/greencardamom/BotWikiAwk'
-        export AWKPATH=.:/home/user/BotWikiAwk/lib:/usr/share/awk
-        export PATH=$PATH:/home/user/BotWikiAwk/bin
-        cd ~/BotWikiAwk
-        ./setup.sh
-        (read SETUP for further instructions eg. setting up email)
-
-* All program files are assumed to have some hard coded paths. Edit each and check for changes specific to your system.
+* findlinks.awk has a hard coded path at the top of the file for the "Home" directory.
 
 * You will need a Toolforge account (free registration). Copy your replica.my.cnf file to the Findlinks local directory (it contains your SQL login ID and password)
 
