@@ -30,6 +30,7 @@
 
 BEGIN {
 
+  # Add a trailing slash
   Home = "/home/greenc/toolforge/findlinks/"
 
   Namespace = "0 6"  # default
@@ -53,6 +54,12 @@ BEGIN {
         Allwikistxt = 1
   }
  
+  if(!exists2(Home)) {
+    print "Unable to find 'Home' directory: " Home
+    print "Edit findlinks.awk and set to your home directory with a trailing slash"
+    exit
+  }
+
   if(Allwikistxt) {
     create_allwikistxt()
     print "Created " Home "allwikis.txt"
