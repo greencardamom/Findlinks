@@ -302,7 +302,7 @@ function help() {
   print "    -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list"
   print "                             If \"ALL\" then process all sites (800+) in allwikis.txt"
   print "                             If \"<whatever>.txt\" then process all site codes listed in the file <whatever>.txt"
-  print "                             Use of the trailing "_p" in the site code is supported but optional - see Examples below"
+  print "                             Use of the trailing \"_p\" in the site code is supported but optional - see Examples below"
   print "    -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is \"" Namespace "\""
   print "                             eg. -n \"0 6 10\" will check these 3 namespaces "
   print "                             0 = mainspace, 6 = File: and 10 = Template:"
