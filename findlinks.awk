@@ -183,7 +183,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
         ns = strip(b[3])
         wp = gsubi("_"," ",strip(b[2]))
         url = strip(b[4])
-        if(ns ~ re) {
+        if(ns ~ re ) {
           if(ns == "6")
             wp = "File:" wp 
           else if(ns == "10")
