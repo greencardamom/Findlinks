@@ -163,7 +163,8 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
       close(Outfile ".t")
       delete jj
-      for(j = 1; j <= splitn(Outfile ".t", jj, j); j++) 
+      line_count = splitn(Outfile ".t", jj)
+      for(j = 1; j <= line_count; j++) 
         print site[g] "\t" jj[j] >> Outfile 
       close(Outfile)
       close(Outfile ".t")
@@ -380,70 +381,31 @@ function checkexists(file, program, action) {
 
 
 #
-# splitn() - split input 'fp' along \n
+# splitn() - split input from a file or a string into an array.
 #
-#  Designed to replace typical code sequence
-#      fp = readfile("test.txt")
-#      c = split(fp, a, "\n")
-#      for(i = 1; i <= c; i++) {
-#        if(length(a[i]) > 0) 
-#          print "a[" i "] = " a[i]
-#      }
-#  With
-#      for(i = 1; i <= splitn("test.txt", a, i); i++) 
-#        print "a[" i "] = " a[i]
+#   . Reads a file or uses the literal string if it's not a file path.
+#   . Splits the content by newlines.
+#   . Skips blank lines.
+#   . Populates the provided array `arrSP`.
+#   . Returns the number of elements in the array.
 #
-#   . If input is the name of a file, it will readfile() it; otherwise use literal text as given 
-#   . Automatically removes blank lines from input
-#   . Allows for embedding in for-loops 
-#
-#   Notes
-#
-#   . The 'counter' ('i' in the example) is assumed initialized to 1 in the for-loop. If
-#     different, pass a start value in the fourth argument eg.
-#             for(i = 5; i <= splitn("test.txt", a, i, 5); i++)
-#   . If not in a for-loop the counter is not needed eg.
-#             c = splitn("test.txt", a)
-#   . 'fp' can be a filename, or a string of literal text. If 'fp' does not contain a '\n'
-#     it will search for a filename of that name; if none found it will treat as a
-#     literal string. If it means to be a string, for safety add a '\n' to end. eg.
-#             for(i = 5; i <= splitn(ReadDB(key) "\n", a, i); i++)
-#       
-function splitn(fp, arrSP, counter, start,    c,j,dSP,i,save_sorted) {
-
-    if ( empty(start) ) 
-        start = 1 
-    if (counter > start) 
-        return length(arrSP) 
-
-    if ("sorted_in" in PROCINFO) 
-        save_sorted = PROCINFO["sorted_in"]
-    PROCINFO["sorted_in"] = "@ind_num_asc"
-
-    if (fp !~ /\n/) {
-        if (checkexists(fp))      # If the string doesn't contain a \n check if a filename exists
-            fp = readfile(fp)     # with that name. If not assume it's a literal string. This is a bug
-    }                             # in case a filename exists with the same name as the literal string.
-
+function splitn(fp, arrSP,    c, i, j, temp_arr) {
     delete arrSP
-    c = split(fp, dSP, "\n")
-    for (j in dSP) {
-        if (empty(dSP[j])) 
-            delete dSP[j]
-    }
-    i = 1
-    for (j in dSP)  {
-        arrSP[i] = dSP[j]
-        i++
+
+    # If fp doesn't contain a newline and it's an existing file, read it.
+    # Otherwise, treat fp as the literal content.
+    if (fp !~ /\n/ && checkexists(fp)) {
+        fp = readfile(fp)
     }
 
-    if (save_sorted)
-        PROCINFO["sorted_in"] = save_sorted
-    else
-        PROCINFO["sorted_in"] = ""
-
-    return length(dSP)
-
+    c = split(fp, temp_arr, "\n")
+    j = 1
+    for (i = 1; i <= c; i++) {
+        if (length(temp_arr[i]) > 0) {
+            arrSP[j++] = temp_arr[i]
+        }
+    }
+    return j - 1
 }
 
 # 
