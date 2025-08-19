@@ -75,7 +75,9 @@ BEGIN {
   
 }
 
-function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h) {
+function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc) {
+
+  debug = 0
 
   oDomain = Domain
 
@@ -142,8 +144,21 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     # PID of ssh tunnel
     tunnelsock = mktemp(Home "tunnelsock.XXXXXX", "u")
 
+    if(debug) {
+      dbf = "/home/greenc/toolforge/findlinks/debug.txt"
+      print tunnelsock > dbf
+      close(dbf)
+    }
+    
     # Create tunnel 
     command = "ssh -N -f -M -S " tunnelsock " -L 4711:" site[g] ".analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
+
+    if(debug) {
+      print "Creating tunnel" >> dbf
+      print command >> dbf
+      close(dbf)
+    }
+
     system(command)
 
     # Generate .sql file
@@ -151,13 +166,36 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
 
     # Run SQL query
     command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " Home "findlinks.sql >> " Home "cache"
+
+    if(debug) {
+      print "Run SQL query" >> dbf
+      print command >> dbf
+      close(dbf)
+    }
+
     system(command)
     close(Home "cache")
 
     # Kill tunnel
-    sys2var("ssh -S " tunnelsock " -O exit login.toolforge.org", 1)
+    command = "ssh -S " tunnelsock " -O exit login.toolforge.org"
 
-    c = sys2var("awk 'END{print NR}' " Home "cache") - 1 # subtract one for "el_to" line
+    if(debug) {
+      print "Kill tunnel" >> dbf
+      print command >> dbf
+      close(dbf)
+    }
+
+    sys2var(command, 1)
+
+    command = "awk 'END{print NR}' " Home "cache" 
+
+    if(debug) {
+      print "Clean cache" >> dbf
+      print command >> dbf
+      close(dbf)
+    }
+    
+    c = sys2var(command) - 1 # subtract one for "el_to" line
 
     if(int(c) > 0) {
       sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
@@ -178,7 +216,8 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     re = "^(" gsubi(" ", "|", Namespace) ")$"
     delete RES
     delete a
-    for(i = 1; i <= splitn(Outfile, a, i); i++) {
+    ofc = split(readfile(Outfile), a, "\n")
+    for(i = 1; i <= ofc; i++) {
       c = split(a[i], b, " ")
       if(c == 4) {
         ns = strip(b[3])
