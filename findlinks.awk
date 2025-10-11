@@ -75,24 +75,26 @@ BEGIN {
   
 }
 
-function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc) {
+function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc,Outfile) {
 
   debug = 0
 
+  # SQL type
+  #   "ARTICLES" will print the URL and article name
+  #   "URLS-ALL" will print all URLs in all namespaces (-n will not work)
+  SQLType = "ARTICLES"
+
+  if(Domain == "ALL") {
+    Domain = "adn.com"
+    SQLType = "URLS-ALL"
+  }
+
   oDomain = Domain
 
-  # Reverse domain eg. com.cnn.www
-  c = split(reverse(Domain), a, "[.]")
-  Domain = reverse(a[1])
-  for(i = 2; i <= c; i++) 
-    Domain = Domain "." reverse(a[i])
-  
-  # File to save output to
-  Outfile = Home oDomain
-
-  # SQL type
-  # "ARTICLES" will print the URL and article name. Currently the only option available.
-  SQLType = "ARTICLES"
+  if(SQLType == "URLS-ALL" && Keepfile != 1) {
+    print "URLS-ALL requires -k"
+    exit
+  }
 
   if(!checkexists(Home "replica.my.cnf")) {
     print "Aborting missing " Home "replica.my.cnf" > "/dev/stderr"
@@ -132,7 +134,14 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     if(checkexists(Home "cache")) 
       removefile2(Home "cache")
 
-    Outfile = Outfile "." site[g]
+    # Reverse domain eg. com.cnn.www
+    c = split(reverse(Domain), a, "[.]")
+    Domain = reverse(a[1])
+    for(i = 2; i <= c; i++) 
+      Domain = Domain "." reverse(a[i])
+  
+    # File to save output to
+    Outfile = Home oDomain "." site[g]
 
     if(checkexists(Outfile) && Keepfile) {
       print "Aborting due to existence of Outfile (" Outfile  ") and -k option. Either delete the Outfile or don't use -k" > "/dev/stderr"
@@ -197,6 +206,18 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     
     c = sys2var(command) - 1 # subtract one for "el_to" line
 
+    if(int(c) > 0 && SQLType == "URLS-ALL") {
+      sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
+      close(Outfile ".t")
+      removefile2(Home "cache")
+      system("mv " Outfile ".t " Outfile)      
+      continue
+    }
+    if(int(c) == 0 && SQLType == "URLS-ALL") {
+      removefile2(Home "cache")
+      continue
+    }
+
     if(int(c) > 0) {
       sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
       close(Outfile ".t")
@@ -248,6 +269,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   } 
   if(Keepfile != 1)
     removefile2(Outfile)
+
 }
 
 function print_sql(site,  f) {
@@ -289,6 +311,18 @@ function print_sql(site,  f) {
     print "FROM externallinks" >> f
     print "JOIN page ON page_id = el_from" >> f
     print "WHERE el_to_domain_index LIKE 'http://" Domain ".%' OR el_to_domain_index LIKE 'https://" Domain ".%'" >> f
+  }
+  else if(SQLType == "URLS-ALL") { 
+    print "USE " site ";" > f
+
+    print "SELECT" >> f
+    print "p.page_title," >> f
+    print "p.page_namespace," >> f
+    print "CONCAT(el.el_to_domain_index, el.el_to_path) AS full_url" >> f
+    print "FROM" >> f
+    print "externallinks AS el" >> f
+    print "JOIN" >> f
+    print "page AS p ON p.page_id = el.el_from" >> f
   }
   else {
     print "No viable method."
@@ -339,6 +373,7 @@ function help() {
 
   print "\n  findlinks - list page names that contain a domain\n"
   print "    -d <domain>   (required) Domain to search for eg. cnn.com"
+  print "                             if \"ALL\" then retrieve every URL for every domain. Requires -k and does not work with -n"
   print "    -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list"
   print "                             If \"ALL\" then process all sites (800+) in allwikis.txt"
   print "                             If \"<whatever>.txt\" then process all site codes listed in the file <whatever>.txt"
