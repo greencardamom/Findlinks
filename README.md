@@ -8,37 +8,43 @@ It can operate on 1 wiki, 2+ wikis, or all 800+ wikis.
 
 It's useful for bot operators who need to know which articles to process for a given domain.
 
-It's useful to dump all URLs for a given domain for whatever purpose.
+It can dump all URLs for a given domain, or for all domains, for some sites, or all sites.
 
 It's useful to build other queries to answer other questions from the replication database.
 
 Running
 ==========
 
-	findlinks - list page names that contain a domain
+	  findlinks - list page names that contain a domain
 	
-	  -d <domain>   (required) Domain to search for eg. cnn.com
-	  -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list
-	                           If "ALL" then process all sites (800+) in allwikis.txt
-	                           If "<whatever>.txt" then process all site codes listed in the file <whatever>.txt
-	                           Use of a trailing "_p" in the site code is supported but optional - see Examples below
-	  -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is "0 6"
-	                           eg. -n "0 6 10" will check these 3 namespaces 
-	                           0 = mainspace, 6 = File: and 10 = Template:
-	  -r <regex>    (optional) Only report URLs that match the given regex
-	  -k            (optional) Keep raw output file. Useful for viewing the URLs
-	  -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes
-	
-	  Examples:
-	
-	    Find all pages on enwiki in namespace 4 & 5 that contain archive.md
-	      ./findlinks -d archive.md -s enwiki -n '4 5'
-	    Find all pages on enwiki and eswiki in namespace 0 that contain archive.md
-	      ./findlinks -d archive.md -s 'enwiki eswiki' -n 0
-	    Find all pages on the sites listed in mylist.txt in namespace 0 & 6 that contain archive.md
-	      ./findlinks -d archive.md -s mylist.txt
-	    Find all pages on enwiki in namespace 0 & 6 that contain a URL with 'archive.today' that has 'http:'
-	      ./findlinks -d archive.today -s enwiki -r '^http:'
+	    -d <domain>   (required) Domain to search for eg. cnn.com
+	                    if "ALL" then retrieve every URL for every domain. -k will be enabled by default
+	    -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list
+	                    If "ALL" then process all sites (800+) in allwikis.txt
+	                    If "<whatever>.txt" then process all site codes listed in the file <whatever>.txt
+	                    Use of the trailing "_p" in the site code is supported but optional - see Examples below
+	    -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is "0 6"
+	                    eg. -n "0 6 10" will check these 3 namespaces 
+	                    0 = mainspace, 6 = File: and 10 = Template:
+	    -r <regex>    (optional) Only report URLs that match the given regex
+	    -k            (optional) Keep raw output file. Useful for viewing the URLs
+	    -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes
+
+	    Examples:
+	      Find all pages on enwiki in namespace 4 & 5 that contain 'archive.md'
+	         ./findlinks -d archive.md -s enwiki -n '4 5'
+	      Find all pages on enwiki and eswiki in namespace 0 that contain archive.md
+	         ./findlinks -d archive.md -s 'enwiki eswiki' -n 0
+	      Find all pages on the sites listed in mylist.txt in namespace 0 & 6 that contain archive.md
+	         ./findlinks -d archive.md -s mylist.txt
+	      Find all pages on enwiki in namespace 0 & 6 that contain a URL with '^http:' and 'archive.today'
+	         ./findlinks -d archive.today -s enwiki -r '^http:'
+	      Dump all links in all wikis for namespaces 0 and 6
+	         ./findlinks -d ALL -s ALL -n "0 6"
+	      Dump all links in the sites listed in domains.txt
+	         ./findlinks -d ALL -s domains.txt
+	      Dump all cnn.com links in all sites in namespace 1
+	         ./findlinks -d cnn.com -s ALL -n 1
 
 How it works
 =========

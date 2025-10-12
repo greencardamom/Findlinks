@@ -420,6 +420,10 @@ function help() {
   print "         ./findlinks -d archive.today -s enwiki -r '^http:'"
   print "      Dump all links in all wikis for namespaces 0 and 6"
   print "         ./findlinks -d ALL -s ALL -n \"0 6\""
+  print "      Dump all links in the sites listed in domains.txt"
+  print "         ./findlinks -d ALL -s domains.txt"
+  print "      Dump all cnn.com links in all sites in namespace 1"
+  print "         ./findlinks -d cnn.com -s ALL -n 1"
   print ""
 
 }
