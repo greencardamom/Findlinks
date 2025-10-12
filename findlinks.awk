@@ -44,7 +44,7 @@ BEGIN {
         Domain = verifyval(Optarg)
       if(C == "s")                 #  -s <site>       Site(s) eg. "enwiki_p"
         Sites = verifyval(Optarg)
-      if(C == "n")                 #  -i <namespace>  Namespace eg. "0" or "0 6 10" - default "0 6"
+      if(C == "n")                 #  -n <namespace>  Namespace eg. "0" or "0 6 10" - default "0 6"
         Namespace = verifyval(Optarg)
       if(C == "r")                 #  -r <regex>      Regex of url to match
         Regexurl = verifyval(Optarg)
@@ -87,14 +87,10 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   if(Domain == "ALL") {
     Domain = "adn.com"
     SQLType = "URLS-ALL"
+    Keepfile = 1
   }
 
   oDomain = Domain
-
-  if(SQLType == "URLS-ALL" && Keepfile != 1) {
-    print "URLS-ALL requires -k"
-    exit
-  }
 
   if(!checkexists(Home "replica.my.cnf")) {
     print "Aborting missing " Home "replica.my.cnf" > "/dev/stderr"
@@ -323,6 +319,10 @@ function print_sql(site,  f) {
     print "externallinks AS el" >> f
     print "JOIN" >> f
     print "page AS p ON p.page_id = el.el_from" >> f
+    if(!empty(Namespace)) {
+      print "WHERE" >> f
+      print "p.page_namespace " gennamespace() ";" >> f
+    }
   }
   else {
     print "No viable method."
@@ -330,6 +330,30 @@ function print_sql(site,  f) {
   }
 
   close(f)
+
+}
+
+#
+# generate namespace string for SQL 
+#   eg. "0 6" => "(0, 6)"
+#       "0" => "0"
+#
+function gennamespace(  c,a,i,out) {
+
+  if(!empty(Namespace)) {
+    c = split(Namespace, a, " ")
+    if(c == 1)
+      return "= " Namespace
+    else {
+      for(i = 1; i <= c; i++) {
+        out = out a[i]
+        if(i != c)
+          out = out ", "
+      }
+      out = "IN (" out ")"
+    }
+  }
+  return out
 
 }
 
@@ -373,7 +397,7 @@ function help() {
 
   print "\n  findlinks - list page names that contain a domain\n"
   print "    -d <domain>   (required) Domain to search for eg. cnn.com"
-  print "                             if \"ALL\" then retrieve every URL for every domain. Requires -k and does not work with -n"
+  print "                             if \"ALL\" then retrieve every URL for every domain. -k will be enabled by default"
   print "    -s <site>     (required) One or more site codes [space seperated] - see allwikis.txt for the list"
   print "                             If \"ALL\" then process all sites (800+) in allwikis.txt"
   print "                             If \"<whatever>.txt\" then process all site codes listed in the file <whatever>.txt"
@@ -394,6 +418,8 @@ function help() {
   print "         ./findlinks -d archive.md -s mylist.txt"
   print "      Find all pages on enwiki in namespace 0 & 6 that contain a URL with '^http:' and 'archive.today'"
   print "         ./findlinks -d archive.today -s enwiki -r '^http:'"
+  print "      Dump all links in all wikis for namespaces 0 and 6"
+  print "         ./findlinks -d ALL -s ALL -n \"0 6\""
   print ""
 
 }
