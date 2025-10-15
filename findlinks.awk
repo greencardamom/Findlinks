@@ -8,7 +8,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2020-2024 by User:GreenC (at en.wikipedia.org)
+# Copyright (c) 2020-2025 by User:GreenC (at en.wikipedia.org)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,13 +32,14 @@ BEGIN {
 
   # Add a trailing slash
   Home = "/home/greenc/toolforge/findlinks/"
+  CWDHome = ENVIRON["PWD"]
 
   Namespace = "0 6"  # default
 
   IGNORECASE = 1
 
   Optind = Opterr = 1
-  while ((C = getopt(ARGC, ARGV, "akd:s:n:r:")) != -1) {
+  while ((C = getopt(ARGC, ARGV, "qakd:s:n:r:w:")) != -1) {
       opts++
       if(C == "d")                 #  -d <domain>     Domainame eg. "cnn.com"
         Domain = verifyval(Optarg)
@@ -52,8 +53,18 @@ BEGIN {
         Keepfile = 1
       if(C == "a")                 #  -a              Generate a fresh allwikis.txt file
         Allwikistxt = 1
+      if(C == "q")                 #  -q              Don't print status messages, but still prints errors
+        Silent = 1
+      if(C == "w")                 #  -w              Working directory. Recommend if running from cron. Default CWD
+        Workdir = verifyval(Optarg)
   }
  
+  if(!empty(Workdir)) 
+    CWDHome = Workdir
+
+  if(CWDHome !~ "/$")
+    CWDHome = CWDHome "/"
+
   if(!exists2(Home)) {
     print "Unable to find 'Home' directory: " Home
     print "Edit findlinks.awk and set to your home directory with a trailing slash"
@@ -62,7 +73,7 @@ BEGIN {
 
   if(Allwikistxt) {
     create_allwikistxt()
-    print "Created " Home "allwikis.txt"
+    if(!Silent) print "Created " CWDHome "allwikis.txt"
     exit
   }
 
@@ -105,21 +116,23 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   else
     sitefilename = "allwikis.txt"
 
-  # Create a fresh copy of allwikis.txt if running "ALL"
+  # Notify of allwikis.txt if running "ALL"
   if(sitefilename == "allwikis.txt" && Sites == "ALL") {
 
-    create_allwikistxt()
-
-    if(!checkexists(Home "allwikis.txt")) {
-      print "Aborting due missing allwikis.txt" > "/dev/stderr"
+    if(!checkexists(CWDHome "allwikis.txt")) {
+      print "Aborting due missing " CWDHome "allwikis.txt" > "/dev/stderr"
       exit
+    }
+    else {
+      if(!Silent) 
+        print "Using existing allwikis.txt. To make a fresh copy run -a first"
     }
   }
 
   if(Sites != "ALL")
     e = split(Sites, site, " ")
   else
-    e = splitn(Home sitefilename, site)
+    e = splitn(CWDHome sitefilename, site)
 
   for(g = 1; g <= e; g++) {
 
@@ -127,8 +140,8 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     if(site[g] ~ "_p$")
       sub("_p$", "", site[g])
 
-    if(checkexists(Home "cache")) 
-      removefile2(Home "cache")
+    if(checkexists(CWDHome "cache")) 
+      removefile2(CWDHome "cache")
 
     # Reverse domain eg. com.cnn.www
     c = split(reverse(Domain), a, "[.]")
@@ -137,7 +150,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       Domain = Domain "." reverse(a[i])
   
     # File to save output to
-    Outfile = Home oDomain "." site[g]
+    Outfile = CWDHome oDomain "." site[g]
 
     if(checkexists(Outfile) && Keepfile) {
       print "Aborting due to existence of Outfile (" Outfile  ") and -k option. Either delete the Outfile or don't use -k" > "/dev/stderr"
@@ -147,10 +160,10 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       removefile2(Outfile)
 
     # PID of ssh tunnel
-    tunnelsock = mktemp(Home "tunnelsock.XXXXXX", "u")
+    tunnelsock = mktemp(CWDHome "tunnelsock.XXXXXX", "u")
 
     if(debug) {
-      dbf = "/home/greenc/toolforge/findlinks/debug.txt"
+      dbf = CWD "debug.txt"
       print tunnelsock > dbf
       close(dbf)
     }
@@ -170,7 +183,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     print_sql(site[g] "_p")
 
     # Run SQL query
-    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " Home "findlinks.sql >> " Home "cache"
+    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " CWDHome "findlinks.sql >> " CWDHome "cache"
 
     if(debug) {
       print "Run SQL query" >> dbf
@@ -179,7 +192,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     }
 
     system(command)
-    close(Home "cache")
+    close(CWDHome "cache")
 
     # Kill tunnel
     command = "ssh -S " tunnelsock " -O exit login.toolforge.org"
@@ -192,7 +205,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
 
     sys2var(command, 1)
 
-    command = "awk 'END{print NR}' " Home "cache" 
+    command = "awk 'END{print NR}' " CWDHome "cache" 
 
     if(debug) {
       print "Clean cache" >> dbf
@@ -203,19 +216,19 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     c = sys2var(command) - 1 # subtract one for "el_to" line
 
     if(int(c) > 0 && SQLType == "URLS-ALL") {
-      sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
+      sys2var("cat " CWDHome "cache | grep -v \"el_to\" > " Outfile ".t")
       close(Outfile ".t")
-      removefile2(Home "cache")
+      removefile2(CWDHome "cache")
       system("mv " Outfile ".t " Outfile)      
       continue
     }
     if(int(c) == 0 && SQLType == "URLS-ALL") {
-      removefile2(Home "cache")
+      removefile2(CWDHome "cache")
       continue
     }
 
     if(int(c) > 0) {
-      sys2var("cat " Home "cache | grep -v \"el_to\" > " Outfile ".t")
+      sys2var("cat " CWDHome "cache | grep -v \"el_to\" > " Outfile ".t")
       close(Outfile ".t")
       delete jj
       line_count = splitn(Outfile ".t", jj)
@@ -224,7 +237,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       close(Outfile)
       close(Outfile ".t")
     }
-    removefile2(Home "cache")
+    removefile2(CWDHome "cache")
     removefile2(Outfile ".t")
 
     # Print page names from raw Outfile
@@ -270,7 +283,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
 
 function print_sql(site,  f) {
 
-  f = Home "findlinks.sql"
+  f = CWDHome "findlinks.sql"
 
   if(SQLType == "RAWLINKS-OBSOLETE")  {  # Broken. Not sure how to do this with new style. https://phabricator.wikimedia.org/T312666
     print "USE " site ";" > f
@@ -361,7 +374,7 @@ function gennamespace(  c,a,i,out) {
 # Create allwikis.sql
 #
 function print_allwikissql(  f) {
-  f = Home "allwikis.sql"
+  f = CWDHome "allwikis.sql"
   print "use meta_p;" > f
   print "SELECT * FROM wiki;" >> f
   close(f)
@@ -373,7 +386,7 @@ function print_allwikissql(  f) {
 function create_allwikistxt(  tunnelsock,command) {
 
     # PID of ssh tunnel
-    tunnelsock = mktemp(Home "tunnelsock.XXXXXX", "u")
+    tunnelsock = mktemp(CWDHome "tunnelsock.XXXXXX", "u")
 
     # Create tunnel to meta
     command = "ssh -N -f -M -S " tunnelsock " -L 4711:meta.analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
@@ -383,9 +396,9 @@ function create_allwikistxt(  tunnelsock,command) {
     print_allwikissql()
 
     # Run command
-    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " Home "allwikis.sql | grep -v Database | awk '{split($0,a,/\\t/); if(a[8] == 0) print a[1] \"_p\"}' > " Home "allwikis.txt"
+    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " Home "allwikis.sql | grep -v Database | awk '{split($0,a,/\\t/); if(a[8] == 0) print a[1] \"_p\"}' > " CWDHome "allwikis.txt"
     system(command)
-    close(Home "allwikis.txt") 
+    close(CWDHome "allwikis.txt") 
 
     # Kill tunnel to meta
     command = "ssh -S " tunnelsock " -O exit login.toolforge.org"
@@ -406,6 +419,9 @@ function help() {
   print "                             eg. -n \"0 6 10\" will check these 3 namespaces "
   print "                             0 = mainspace, 6 = File: and 10 = Template:"
   print "    -r <regex>    (optional) Only report URLs that match the given regex"
+  print "    -q            (optional) Don't print status messages but continue to print errors"
+  print "    -w <dir>      (optional) Working dir for temp and data files. Needed if running from cron or invoked." 
+  print "                             Default working dir is CWD in interactive shell."
   print "    -k            (optional) Keep raw output file. Useful for viewing the URLs"
   print "    -a            (optional) Generate a fresh copy of allwikis.txt - ie. a list of all wiki site codes"
   print ""
