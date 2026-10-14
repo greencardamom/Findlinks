@@ -86,7 +86,7 @@ BEGIN {
   
 }
 
-function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc,Outfile) {
+function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc,Outfile,known,validated) {
 
   debug = 0
 
@@ -134,11 +134,25 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   else
     e = splitn(CWDHome sitefilename, site)
 
+  # Known site codes, to catch typos like "en" for "enwiki"
+  validated = loadsites(CWDHome "allwikis.txt", known)
+  if(!validated)
+    stdErr("Warning: missing " CWDHome "allwikis.txt - site codes not checked. Run -a to create it")
+
   for(g = 1; g <= e; g++) {
 
     # Normalize format
     if(site[g] ~ "_p$")
       sub("_p$", "", site[g])
+
+    # Unknown site has no replica host, and mysql fails with a vague "Lost connection" error
+    if(validated && !(site[g] in known)) {
+      if((site[g] "wiki") in known)
+        stdErr("Skipping unknown site \"" site[g] "\" - did you mean \"" site[g] "wiki\"? See allwikis.txt")
+      else
+        stdErr("Skipping unknown site \"" site[g] "\" - see allwikis.txt for the list")
+      continue
+    }
 
     if(checkexists(CWDHome "cache")) 
       removefile2(CWDHome "cache")
@@ -279,6 +293,26 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   if(Keepfile != 1)
     removefile2(Outfile)
 
+}
+
+#
+# loadsites() - load site codes from allwikis.txt into arr[] as keys, without the "_p" suffix
+#
+#   . return number of sites loaded, 0 if file missing
+#
+function loadsites(file, arr,    c, i, a) {
+
+  delete arr
+
+  if(!checkexists(file))
+    return 0
+
+  c = splitn(file, a)
+  for(i = 1; i <= c; i++) {
+    sub("_p$", "", a[i])
+    arr[strip(a[i])] = 1
+  }
+  return c
 }
 
 function print_sql(site,  f) {
