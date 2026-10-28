@@ -26,6 +26,7 @@ Running
 	    -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is "0 6"
 	                    eg. -n "0 6 10" will check these 3 namespaces 
 	                    0 = mainspace, 6 = File: and 10 = Template:
+	                    Without -n the -k raw output file has every namespace. With -n it has only those given
 	    -r <regex>    (optional) Only report URLs that match the given regex
 	    -q            (optional) Don't print status messages but continue to print errors
 	    -w <dir>      (optional) Working dir for temp and data files. Needed if running from cron or invoked.

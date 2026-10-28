@@ -45,8 +45,10 @@ BEGIN {
         Domain = verifyval(Optarg)
       if(C == "s")                 #  -s <site>       Site(s) eg. "enwiki_p"
         Sites = verifyval(Optarg)
-      if(C == "n")                 #  -n <namespace>  Namespace eg. "0" or "0 6 10" - default "0 6"
+      if(C == "n") {               #  -n <namespace>  Namespace eg. "0" or "0 6 10" - default "0 6"
         Namespace = verifyval(Optarg)
+        NamespaceOpt = 1           #  Given with -n: the -k raw outfile is limited to these namespaces too
+      }
       if(C == "r")                 #  -r <regex>      Regex of url to match
         Regexurl = verifyval(Optarg)
       if(C == "k")                 #  -k              Keep raw outfile
@@ -82,11 +84,17 @@ BEGIN {
     exit(0)
   }
 
+  # Namespace goes into the SQL, so allow only numbers
+  if(Namespace !~ /^[ ]*[0-9]+([ ]+[0-9]+)*[ ]*$/) {
+    stdErr("Error: -n must be one or more namespace numbers separated by spaces, eg. \"0 6\"")
+    exit 1
+  }
+
   main()
   
 }
 
-function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc,Outfile,known,validated) {
+function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,sitefilename,h,debug,ofc,Outfile,known,validated,rc,nfail,failed) {
 
   debug = 0
 
@@ -102,6 +110,14 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   }
 
   oDomain = Domain
+
+  # Reverse domain eg. com.cnn.www
+  # Done once here. Inside the site loop it reversed Domain back and forth, so every
+  # second site queried the unreversed form, matched nothing and was silently skipped
+  c = split(reverse(oDomain), a, "[.]")
+  Domain = reverse(a[1])
+  for(i = 2; i <= c; i++)
+    Domain = Domain "." reverse(a[i])
 
   if(!checkexists(Home "replica.my.cnf")) {
     print "Aborting missing " Home "replica.my.cnf" > "/dev/stderr"
@@ -154,15 +170,9 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       continue
     }
 
-    if(checkexists(CWDHome "cache")) 
+    if(checkexists(CWDHome "cache"))
       removefile2(CWDHome "cache")
 
-    # Reverse domain eg. com.cnn.www
-    c = split(reverse(Domain), a, "[.]")
-    Domain = reverse(a[1])
-    for(i = 2; i <= c; i++) 
-      Domain = Domain "." reverse(a[i])
-  
     # File to save output to
     Outfile = CWDHome oDomain "." site[g]
 
@@ -182,8 +192,10 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       close(dbf)
     }
     
-    # Create tunnel 
-    command = "ssh -N -f -M -S " tunnelsock " -L 4711:" site[g] ".analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
+    # Create tunnel
+    #   ExitOnForwardFailure: if port 4711 can't be bound, fail instead of running
+    #   without the forward, which would leave mysql talking to nothing or a stale tunnel
+    command = "ssh -N -f -M -S " tunnelsock " -o ExitOnForwardFailure=yes -L 4711:" site[g] ".analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
 
     if(debug) {
       print "Creating tunnel" >> dbf
@@ -191,7 +203,14 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       close(dbf)
     }
 
-    system(command)
+    # A failed site must be reported. Treated as zero links it looks like a site with none
+    rc = system(command)
+    if(rc != 0) {
+      stdErr("Error: " site[g] ": unable to create ssh tunnel (exit " rc ")")
+      nfail++
+      failed = failed " " site[g]
+      continue
+    }
 
     # Generate .sql file
     print_sql(site[g] "_p")
@@ -205,7 +224,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       close(dbf)
     }
 
-    system(command)
+    rc = system(command)
     close(CWDHome "cache")
 
     # Kill tunnel
@@ -219,7 +238,16 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
 
     sys2var(command, 1)
 
-    command = "awk 'END{print NR}' " CWDHome "cache" 
+    # Query failed: discard any partial output and report the site
+    if(rc != 0) {
+      stdErr("Error: " site[g] ": mysql query failed (exit " rc ")")
+      removefile2(CWDHome "cache")
+      nfail++
+      failed = failed " " site[g]
+      continue
+    }
+
+    command = "awk 'END{print NR}' " CWDHome "cache"
 
     if(debug) {
       print "Clean cache" >> dbf
@@ -293,6 +321,11 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
   if(Keepfile != 1)
     removefile2(Outfile)
 
+  if(nfail > 0) {
+    stdErr("Error: " nfail " site(s) failed and have no results:" failed)
+    exit 1
+  }
+
 }
 
 #
@@ -353,9 +386,14 @@ function print_sql(site,  f) {
     print "       CONCAT(REGEXP_REPLACE(el_to_domain_index, '^(.*?://)(?:([^.]+)\\\\.)([^.]+\\\\.)?([^.]+\\\\.)?([^.]+\\\\.)?([^.]+\\\\.)?([^.]+\\\\.)?([^.]+\\\\.)?([^.]+\\\\.)$','\\\\1\\\\9\\\\8\\\\7\\\\6\\\\5\\\\4\\\\3\\\\2'),el_to_path) AS url" >> f
     print "FROM externallinks" >> f
     print "JOIN page ON page_id = el_from" >> f
-    print "WHERE el_to_domain_index LIKE 'http://" Domain ".%' OR el_to_domain_index LIKE 'https://" Domain ".%'" >> f
+    if(NamespaceOpt) {
+      print "WHERE (el_to_domain_index LIKE 'http://" Domain ".%' OR el_to_domain_index LIKE 'https://" Domain ".%')" >> f
+      print "AND page_namespace " gennamespace() >> f
+    }
+    else
+      print "WHERE el_to_domain_index LIKE 'http://" Domain ".%' OR el_to_domain_index LIKE 'https://" Domain ".%'" >> f
   }
-  else if(SQLType == "URLS-ALL") { 
+  else if(SQLType == "URLS-ALL") {
     print "USE " site ";" > f
 
     print "SELECT" >> f
@@ -417,26 +455,39 @@ function print_allwikissql(  f) {
 #
 # Create allwikis.txt
 #
-function create_allwikistxt(  tunnelsock,command) {
+function create_allwikistxt(  tunnelsock,command,rc,n,a) {
 
     # PID of ssh tunnel
     tunnelsock = mktemp(CWDHome "tunnelsock.XXXXXX", "u")
 
     # Create tunnel to meta
-    command = "ssh -N -f -M -S " tunnelsock " -L 4711:meta.analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
-    system(command)
+    command = "ssh -N -f -M -S " tunnelsock " -o ExitOnForwardFailure=yes -L 4711:meta.analytics.db.svc.wikimedia.cloud:3306 login.toolforge.org"
+    rc = system(command)
+    if(rc != 0) {
+      stdErr("Error: unable to create ssh tunnel to meta (exit " rc "). " CWDHome "allwikis.txt not changed")
+      exit 1
+    }
 
     # Generate .sql file
     print_allwikissql()
 
-    # Run command
-    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " Home "allwikis.sql | grep -v Database | awk '{split($0,a,/\\t/); if(a[8] == 0) print a[1] \"_p\"}' > " CWDHome "allwikis.txt"
+    # Run command. Write to a temp file so a failed query can't replace allwikis.txt with an empty list
+    #   mysql's exit status is lost in the pipeline, so an empty result is the failure test
+    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " CWDHome "allwikis.sql | grep -v Database | awk '{split($0,a,/\\t/); if(a[8] == 0) print a[1] \"_p\"}' > " CWDHome "allwikis.txt.t"
     system(command)
-    close(CWDHome "allwikis.txt") 
+    close(CWDHome "allwikis.txt.t")
 
     # Kill tunnel to meta
     command = "ssh -S " tunnelsock " -O exit login.toolforge.org"
     sys2var(command, 1)
+
+    n = splitn(CWDHome "allwikis.txt.t", a)
+    if(n == 0) {
+      removefile2(CWDHome "allwikis.txt.t")
+      stdErr("Error: query of meta_p returned no wikis. " CWDHome "allwikis.txt not changed")
+      exit 1
+    }
+    system("mv " shquote(CWDHome "allwikis.txt.t") " " shquote(CWDHome "allwikis.txt"))
 
 }
 
@@ -452,6 +503,7 @@ function help() {
   print "    -n <ns>       (optional) Namespace(s) to target [space seperated]. Default is \"" Namespace "\""
   print "                             eg. -n \"0 6 10\" will check these 3 namespaces "
   print "                             0 = mainspace, 6 = File: and 10 = Template:"
+  print "                             Without -n the -k raw output file has every namespace. With -n it has only those given"
   print "    -r <regex>    (optional) Only report URLs that match the given regex"
   print "    -q            (optional) Don't print status messages but continue to print errors"
   print "    -w <dir>      (optional) Working dir for temp and data files. Needed if running from cron or invoked." 
