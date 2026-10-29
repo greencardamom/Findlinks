@@ -216,7 +216,9 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     print_sql(site[g] "_p")
 
     # Run SQL query
-    command = "mysql --defaults-file=" Home "replica.my.cnf --host=127.0.0.1 --port=4711 < " CWDHome "findlinks.sql >> " CWDHome "cache"
+    #   -N: no column-name header line, so the cache is pure data and can be renamed into place
+    #   (after --defaults-file, which mysql only accepts as the first option)
+    command = "mysql --defaults-file=" Home "replica.my.cnf -N --host=127.0.0.1 --port=4711 < " CWDHome "findlinks.sql >> " CWDHome "cache"
 
     if(debug) {
       print "Run SQL query" >> dbf
@@ -255,13 +257,13 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
       close(dbf)
     }
     
-    c = sys2var(command) - 1 # subtract one for "el_to" line
+    c = sys2var(command) + 0 # no header line with mysql -N
 
+    # Rename, not copy: the URLS-ALL cache is many GB per big wiki (enwiki ~13 GB). The old
+    #   cat | grep -v "el_to" wrote it all a second time, and since the header is "page_title ..."
+    #   it never removed the header - it only dropped real links containing "el_to"
     if(int(c) > 0 && SQLType == "URLS-ALL") {
-      sys2var("cat " CWDHome "cache | grep -v \"el_to\" > " Outfile ".t")
-      close(Outfile ".t")
-      removefile2(CWDHome "cache")
-      system("mv " Outfile ".t " Outfile)      
+      system("mv " shquote(CWDHome "cache") " " shquote(Outfile))
       continue
     }
     if(int(c) == 0 && SQLType == "URLS-ALL") {
@@ -270,8 +272,7 @@ function main(  i,c,b,a,oDomain,tunnelsock,command,j,jj,re,RES,ns,wp,k,site,e,g,
     }
 
     if(int(c) > 0) {
-      sys2var("cat " CWDHome "cache | grep -v \"el_to\" > " Outfile ".t")
-      close(Outfile ".t")
+      system("mv " shquote(CWDHome "cache") " " shquote(Outfile ".t"))
       delete jj
       line_count = splitn(Outfile ".t", jj)
       for(j = 1; j <= line_count; j++) 
